@@ -1,5 +1,6 @@
 import discord
 from discord.ext import commands
+import asyncio
 import os
 from dotenv import load_dotenv
 from music.player import MusicPlayer
@@ -9,6 +10,7 @@ TOKEN = os.getenv("DISCORD_TOKEN")
 
 intents = discord.Intents.default()
 intents.message_content = True
+intents.voice_states = True
 bot = commands.Bot(command_prefix='!', intents=intents)
 players = {}
 
@@ -19,7 +21,22 @@ def get_player(guild_id):
 
 @bot.event
 async def on_ready():
-    print(f'Bot masuk sebagai {bot.user}')
+    print(f'✅ Bot aktif sebagai {bot.user}')
+
+@bot.event
+async def on_voice_state_update(member, before, after):
+    if member.bot:
+        return
+
+    voice_client = discord.utils.get(bot.voice_clients, guild=member.guild)
+    if not voice_client or not voice_client.is_connected():
+        return
+
+    if len(voice_client.channel.members) == 1:
+        await asyncio.sleep(10)
+        if len(voice_client.channel.members) == 1:
+            await voice_client.disconnect()
+            print(f"📤 Bot keluar otomatis dari {voice_client.channel.name} karena kosong.")
 
 @bot.command()
 async def join(ctx):
@@ -40,7 +57,7 @@ async def play(ctx, *, query):
     if not player.voice_client or not player.voice_client.is_connected():
         await ctx.invoke(bot.get_command("join"))
     await player.add_song(query)
-    await ctx.send(f"🎵 Lagu ditambahkan ke antrian.")
+    await ctx.send("🎵 Lagu ditambahkan ke antrian.")
     await player.start_playing(ctx)
 
 @bot.command()
@@ -105,3 +122,7 @@ async def leave(ctx):
     if player.voice_client:
         await player.voice_client.disconnect()
         await ctx.send("📤 Bot keluar dari voice channel.")
+
+# ✅ WAJIB UNTUK JALANKAN BOT
+if __name__ == "__main__":
+    bot.run(TOKEN)
